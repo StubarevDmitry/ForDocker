@@ -25,7 +25,8 @@ jobs:
     - name: Build and push Docker image
       uses: docker/build-push-action@v4
       with:
-        context: .
+        context: ForDocker/  # Указываем папку с Dockerfile
+        file: ForDocker/Dockerfile  # Явно указываем путь
         push: true
         tags: |
           ghcr.io/${{ env.OWNER_LC }}/simpleapp:latest
