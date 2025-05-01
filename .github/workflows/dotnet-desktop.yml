@@ -5,8 +5,14 @@ on:
     branches: [ "master" ]
 
 jobs:
-  build-and-push:
+  build_and_push:
+    name: Build image & push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      actions: read
+      id-token: write  # Необходимо для доступа к GitHub OIDC
     
     steps:
     - uses: actions/checkout@v4
@@ -15,20 +21,20 @@ jobs:
       run: |
         ls -la ForDocker/
         if [ ! -f "ForDocker/Dockerfile" ]; then
-          echo "Dockerfile not found in ForDocker directory!"
+          echo "Error: Dockerfile not found in ForDocker/"
           exit 1
         fi
     
-    - name: Set lowercase owner name
+    - name: Set lowercase owner
       run: |
         echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
     
-    - name: Log in to GHCR
+    - name: Login to GHCR
       uses: docker/login-action@v2
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.CR_PAT }}  # Используем PAT вместо GITHUB_TOKEN
+        password: ${{ secrets.GITHUB_TOKEN }}  # Теперь будет работать с permissions
     
     - name: Build and push
       uses: docker/build-push-action@v4
