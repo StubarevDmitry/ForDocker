@@ -37,5 +37,5 @@ jobs:
         file: ForDocker/Dockerfile  # Явно указываем путь
         push: true
         tags: |
-          ghcr.io/${{ env.OWNER_LC }}/simpleapp:latest
-          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ github.sha }}
+          ghcr.io/stubarevdmitry/simpleapp:latest
+          ghcr.io/stubarevdmitry/simpleapp:${{ github.sha }}
