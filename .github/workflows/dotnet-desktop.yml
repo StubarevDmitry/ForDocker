@@ -19,10 +19,6 @@ jobs:
           exit 1
         fi
     
-    - name: Set lowercase owner name
-      run: |
-        echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-    
     - name: Log in to GHCR
       uses: docker/login-action@v2
       with:
@@ -37,5 +33,5 @@ jobs:
         file: ForDocker/Dockerfile  # Явно указываем путь
         push: true
         tags: |
-          ghcr.io/stubarevdmitry/simpleapp:latest
-          ghcr.io/stubarevdmitry/simpleapp:${{ github.sha }}
+          ghcr.io/StubarevDmitry/simpleapp:latest
+          ghcr.io/StubarevDmitry/simpleapp:${{ github.sha }}
