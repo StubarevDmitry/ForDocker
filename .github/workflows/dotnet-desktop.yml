@@ -1,4 +1,4 @@
-name: Docker Image CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -12,11 +12,29 @@ jobs:
       contents: read
       packages: write
       actions: read
-      id-token: write  # Необходимо для доступа к GitHub OIDC
-    
+      id-token: write
+      issues: write
+      pull-requests: write
+
     steps:
     - uses: actions/checkout@v4
-    
+      with:
+        fetch-depth: 0  # Необходимо для semantic-release
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+
+    - name: Install semantic-release and plugins
+      run: |
+        npm install -g semantic-release @semantic-release/changelog @semantic-release/git @semantic-release/github @semantic-release/exec
+
+    - name: Run semantic-release
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: npx semantic-release
+
     - name: Verify Dockerfile exists
       run: |
         ls -la ForDocker/
@@ -24,18 +42,28 @@ jobs:
           echo "Error: Dockerfile not found in ForDocker/"
           exit 1
         fi
-    
+
     - name: Set lowercase owner
       run: |
         echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-    
+
     - name: Login to GHCR
       uses: docker/login-action@v2
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}  # Теперь будет работать с permissions
-    
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Get version from semantic-release
+      id: version
+      run: |
+        if [ -f "release-version.txt" ]; then
+          VERSION=$(cat release-version.txt)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+        else
+          echo "version=latest" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build and push
       uses: docker/build-push-action@v4
       with:
@@ -44,3 +72,4 @@ jobs:
         tags: |
           ghcr.io/${{ env.OWNER_LC }}/simpleapp:latest
           ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ github.sha }}
+          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ steps.version.outputs.version }}
