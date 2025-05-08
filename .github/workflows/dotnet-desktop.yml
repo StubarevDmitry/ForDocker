@@ -36,44 +36,43 @@ jobs:
       run: npx semantic-release
 
   docker:
-    name: Build and Push Docker
+    name: Build image & push
     needs: release
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-
+      actions: read
+      id-token: write  # Необходимо для доступа к GitHub OIDC
+    
     steps:
     - uses: actions/checkout@v4
-
-    - name: Get release version
-      id: version
+    
+    - name: Verify Dockerfile exists
       run: |
-        if [ -f "release-version.txt" ]; then
-          VERSION=$(cat release-version.txt)
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-        else
-          echo "version=latest" >> $GITHUB_OUTPUT
+        ls -la ForDocker/
+        if [ ! -f "ForDocker/Dockerfile" ]; then
+          echo "Error: Dockerfile not found in ForDocker/"
+          exit 1
         fi
-
-    - name: Set lowercase repository names
+    
+    - name: Set lowercase owner
       run: |
         echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-        echo "REPO_LC=${GITHUB_REPOSITORY#*/,,}" >> $GITHUB_ENV
-
+    
     - name: Login to GHCR
       uses: docker/login-action@v2
       with:
         registry: ghcr.io
         username: ${{ github.actor }}
-        password: ${{ secrets.GITHUB_TOKEN }}
-
+        password: ${{ secrets.GITHUB_TOKEN }}  # Теперь будет работать с permissions
+    
     - name: Build and push
       uses: docker/build-push-action@v4
       with:
         context: ForDocker/
         push: true
         tags: |
-          ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:latest
-          ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ github.sha }}
+          ghcr.io/${{ env.OWNER_LC }}/simpleapp:latest
+          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ github.sha }}
           ghcr.io/${{ env.OWNER_LC }}/${{ env.REPO_LC }}:${{ steps.version.outputs.version }}
