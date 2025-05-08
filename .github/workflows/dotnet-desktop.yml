@@ -47,6 +47,8 @@ jobs:
     
     steps:
     - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0  # Необходимо для работы с тегами
     
     - name: Verify Dockerfile exists
       run: |
@@ -69,11 +71,16 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
     
-    - name: Get release version
+    - name: Get version
       id: version
       run: |
-        # Get the latest release tag
-        VERSION=$(git describe --tags --abbrev=0)
+        # Проверяем наличие тегов
+        if git describe --tags --abbrev=0 &>/dev/null; then
+          VERSION=$(git describe --tags --abbrev=0)
+        else
+          # Если тегов нет, используем SHA коммита
+          VERSION=${{ github.sha }}
+        fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
     
     - name: Build and push
