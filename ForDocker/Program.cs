@@ -7,5 +7,5 @@ int b = 1;
 while (true)
 {
     Console.WriteLine(a + b);
-    Thread.Sleep(10000);
+    Thread.Sleep(1000);
 }
