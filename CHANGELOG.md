@@ -1,3 +1,10 @@
+## [1.0.3](https://github.com/StubarevDmitry/ForDocker/compare/v1.0.2...v1.0.3) (2025-05-13)
+
+
+### Bug Fixes
+
+* третья проверка ([6ee3ad6](https://github.com/StubarevDmitry/ForDocker/commit/6ee3ad698ff9bfcdd19d0e389ef005bd260ceb6a))
+
 ## [1.0.2](https://github.com/StubarevDmitry/ForDocker/compare/v1.0.1...v1.0.2) (2025-05-13)
 
 
