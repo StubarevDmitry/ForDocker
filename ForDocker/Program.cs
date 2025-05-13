@@ -4,11 +4,8 @@ Console.WriteLine("Hello, World!");
 int a = 1;
 int b = 1;
 
-
-Console.WriteLine(a + b);
-
-Console.WriteLine(a + b);
-
-Console.WriteLine(a + b);
-
-Console.WriteLine(a );
+while (true)
+{
+    Console.WriteLine(a + b);
+    Thread.Sleep(10000);
+}
