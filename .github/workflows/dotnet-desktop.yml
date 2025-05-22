@@ -3,53 +3,74 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ "master" ]
-  pull_request:
-    branches: [ "master" ]
+
+env:
+  SONAR_PROJECT_KEY: "StubarevDmitry_ForDocker"
+  SONAR_ORG: "stubarevdmitry"
+  MIN_COVERAGE: "80" # Минимальный порог покрытия 80%
+  PROJECT_DIR: "."  # Указывает на корень проекта
 
 jobs:
-  analyze:
-    name: Analyze and Check Coverage
+  sonarcloud-analysis:
+    name: SonarCloud Analysis
     runs-on: ubuntu-latest
+
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-  
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
-    - name: Install dependencies
-      run: npm install
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '8.0.x'
 
-    - name: Generate empty coverage report
-      if: true  # Всегда выполняется
-      run: |
-        mkdir -p coverage
-        echo '{"summary":{"total":{"lines":{"pct":80},"statements":{"pct":80},"functions":{"pct":80},"branches":{"pct":80}}}}' > coverage/coverage-summary.json
-        npx istanbul report --include=coverage/coverage-summary.json lcov
+      - name: Install tools
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+          dotnet tool install --global coverlet.console
 
-    - name: Run ESLint
-      run: npm run lint
+      - name: Find project file
+        id: find-proj
+        run: |
+          CSPROJ_PATH=$(find "${{ env.PROJECT_DIR }}" -name "*.csproj" | head -n 1)
+          if [ -z "$CSPROJ_PATH" ]; then
+            echo "::error::No .csproj file found in ${{ env.PROJECT_DIR }}"
+            exit 1
+          fi
+          echo "project-path=${CSPROJ_PATH}" >> $GITHUB_OUTPUT
 
-    - name: SonarCloud Scan
-      uses: SonarSource/sonarcloud-github-action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.organization=${{ vars.SONAR_ORG }}
-          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-          -Dsonar.qualitygate.wait=true
-          -Dsonar.coverage.exclusions=**/*.spec.js
+      - name: Start SonarScanner
+        run: |
+          dotnet sonarscanner begin \
+          /k:"${{ env.SONAR_PROJECT_KEY }}" \
+          /o:"${{ env.SONAR_ORG }}" \
+          /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
+          /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
+          /d:sonar.coverage.exclusions="**Test*.cs" \
+          /d:sonar.qualitygate.wait=true \
+          /d:sonar.qualitygate.timeout=600 \
+          /d:sonar.coverage.measures.lines.minimum=${{ env.MIN_COVERAGE }}
+
+      - name: Build and Test
+        run: |
+          dotnet restore "${{ steps.find-proj.outputs.project-path }}"
+          dotnet build "${{ steps.find-proj.outputs.project-path }}" --configuration Release --no-restore
+          dotnet test "${{ steps.find-proj.outputs.project-path }}" \
+            --configuration Release \
+            --no-build \
+            --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
+            --logger trx \
+            --results-directory TestResults
+
+      - name: End SonarScanner
+        run: |
+          dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
   release:
     name: Release
-    needs: analyze
-    if: success()
+    needs: sonarcloud-analysis
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -81,7 +102,6 @@ jobs:
   docker:
     name: Build image & push
     needs: release
-    if: success()
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -92,14 +112,21 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0
+        fetch-depth: 0  # Необходимо для работы с тегами
     
     - name: Verify Dockerfile exists
       run: |
-        if [ ! -f "Dockerfile" ]; then
-          echo "Error: Dockerfile not found"
+        ls -la ForDocker/
+        if [ ! -f "ForDocker/Dockerfile" ]; then
+          echo "Error: Dockerfile not found in ForDocker/"
           exit 1
         fi
+    
+    - name: Set lowercase owner and repo
+      run: |
+        echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
+        echo "REPO_LC=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
+        echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
     
     - name: Login to GHCR
       uses: docker/login-action@v2
@@ -111,10 +138,11 @@ jobs:
     - name: Get version
       id: version
       run: |
-        git fetch --tags
+        # Проверяем наличие тегов
         if git describe --tags --abbrev=0 &>/dev/null; then
           VERSION=$(git describe --tags --abbrev=0)
         else
+          # Если тегов нет, используем SHA коммита
           VERSION=${{ github.sha }}
         fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
@@ -122,8 +150,9 @@ jobs:
     - name: Build and push
       uses: docker/build-push-action@v4
       with:
+        context: ForDocker/
         push: true
         tags: |
-          ghcr.io/${{ github.repository_owner }}/simpleapp:latest
-          ghcr.io/${{ github.repository_owner }}/simpleapp:${{ github.sha }}
-          ghcr.io/${{ github.repository_owner }}/simpleapp:${{ steps.version.outputs.version }}
+          ghcr.io/${{ env.OWNER_LC }}/simpleapp:latest
+          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ github.sha }}
+          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ steps.version.outputs.version }}
