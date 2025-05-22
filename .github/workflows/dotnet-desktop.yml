@@ -22,17 +22,15 @@ jobs:
         cache: 'npm'
 
     - name: Install dependencies
-      run: |
-        echo "Current directory: $(pwd)"
-        ls -la
-        if [ -f "package.json" ]; then
-          npm ci
-        else
-          echo "No package.json found, skipping npm install"
-        fi
+      run: npm ci
 
     - name: Run tests with coverage
-      run: npm test -- --coverage
+      run: npm test -- --coverage --watchAll=false
+
+    - name: Verify code coverage
+      run: |
+        # Проверяем, что покрытие соответствует минимальным требованиям
+        npm run check-coverage
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v3
@@ -55,10 +53,14 @@ jobs:
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.qualitygate.wait=true
           -Dsonar.coverage.exclusions=**/*.spec.js
+          -Dsonar.testExecutionReportPaths=coverage/test-report.xml
+          -Dsonar.javascript.node.maxspace=4096
+          -Dsonar.working.directory=./sonar-scanner
 
   release:
     name: Release
     needs: test-and-analyze
+    if: success()
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -90,6 +92,7 @@ jobs:
   docker:
     name: Build image & push
     needs: release
+    if: success()
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -104,17 +107,10 @@ jobs:
     
     - name: Verify Dockerfile exists
       run: |
-        ls -la ForDocker/
-        if [ ! -f "ForDocker/Dockerfile" ]; then
-          echo "Error: Dockerfile not found in ForDocker/"
+        if [ ! -f "Dockerfile" ]; then
+          echo "Error: Dockerfile not found"
           exit 1
         fi
-    
-    - name: Set lowercase owner and repo
-      run: |
-        echo "OWNER_LC=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_ENV
-        echo "REPO_LC=${GITHUB_REPOSITORY#*/}" >> $GITHUB_ENV
-        echo "REPO_LC=${REPO_LC,,}" >> $GITHUB_ENV
     
     - name: Login to GHCR
       uses: docker/login-action@v2
@@ -126,6 +122,7 @@ jobs:
     - name: Get version
       id: version
       run: |
+        git fetch --tags
         if git describe --tags --abbrev=0 &>/dev/null; then
           VERSION=$(git describe --tags --abbrev=0)
         else
@@ -136,9 +133,8 @@ jobs:
     - name: Build and push
       uses: docker/build-push-action@v4
       with:
-        context: ForDocker/
         push: true
         tags: |
-          ghcr.io/${{ env.OWNER_LC }}/simpleapp:latest
-          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ github.sha }}
-          ghcr.io/${{ env.OWNER_LC }}/simpleapp:${{ steps.version.outputs.version }}
+          ghcr.io/${{ github.repository_owner }}/simpleapp:latest
+          ghcr.io/${{ github.repository_owner }}/simpleapp:${{ github.sha }}
+          ghcr.io/${{ github.repository_owner }}/simpleapp:${{ steps.version.outputs.version }}
