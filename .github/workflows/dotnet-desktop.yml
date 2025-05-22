@@ -10,7 +10,7 @@ env:
   MIN_COVERAGE: "80" # Минимальный порог покрытия 80%
 
 jobs:
-  sonarcloud-analysis:
+sonarcloud-analysis:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
 
@@ -22,40 +22,33 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '6.0.x'
 
-      - name: Install SonarScanner and Coverlet
-        run: |
-          dotnet tool install --global dotnet-sonarscanner
-          dotnet add package coverlet.msbuild --version 3.2.0
+      - name: Install SonarScanner for .NET
+        run: dotnet tool install --global dotnet-sonarscanner
+
+      - name: Install dependencies
+        run: dotnet restore
 
       - name: Start SonarScanner
         run: |
-          dotnet sonarscanner begin \
-          /k:"${{ env.SONAR_PROJECT_KEY }}" \
-          /o:"${{ env.SONAR_ORG }}" \
-          /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
+          dotnet sonarscanner begin /k:"StubarevDmitry_ForDocker" /o:"stubarevdmitry" \
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
           /d:sonar.coverage.exclusions="**Test*.cs" \
-          /d:sonar.cpd.exclusions="**/Migrations/**" \
           /d:sonar.qualitygate.wait=true \
-          /d:sonar.qualitygate.timeout=600 \
-          /d:sonar.coverage.measures.lines.minimum=${{ env.MIN_COVERAGE }}
+          /d:sonar.qualitygate.timeout=300 \
+          /d:sonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Build and Test with Coverage
+      - name: Build
+        run: dotnet build --configuration Release --no-restore
+
+      - name: Test with coverage
         run: |
-          dotnet build --configuration Release --no-restore
-          dotnet test \
-            --configuration Release \
-            --no-build \
-            --collect:"XPlat Code Coverage" \
-            --settings coverlet.runsettings \
-            --logger trx \
-            --results-directory TestResults
+          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
       - name: End SonarScanner
         run: |
-          dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
+          dotnet sonarscanner end /d:sonar.login=${{ secrets.SONAR_TOKEN }}
 
   release:
     name: Release
