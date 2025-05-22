@@ -6,7 +6,7 @@ int b = 1;
 while (true)
 {
     Console.WriteLine(a + b);
-    Thread.Sleep(1000);
+    Thread.Sleep(200);
 }
 
 int plusOne(int a)
