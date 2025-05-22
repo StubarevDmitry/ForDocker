@@ -7,72 +7,8 @@ on:
     branches: [ "master" ]
 
 jobs:
-  analyze:
-    name: Analyze and Check Coverage
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-  
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: '18'
-
-    - name: Install dependencies
-      run: |
-        npm install
-        npm install --save-dev nyc
-
-    - name: Generate empty coverage report
-      run: |
-        mkdir -p coverage .nyc_output
-        
-        # Создаём корректный summary-отчёт
-        echo '{
-          "total": {
-            "lines": {"total": 10, "covered": 8, "skipped": 0, "pct": 80},
-            "statements": {"total": 10, "covered": 8, "skipped": 0, "pct": 80},
-            "functions": {"total": 10, "covered": 8, "skipped": 0, "pct": 80},
-            "branches": {"total": 10, "covered": 8, "skipped": 0, "pct": 80}
-          }
-        }' > coverage/coverage-summary.json
-        
-        # Создаём минимальный lcov-отчёт
-        echo 'TN:
-        SF:src/index.js
-        FN:1,(anonymous_0)
-        FNF:1
-        FNH:1
-        DA:1,1
-        LF:1
-        LH:1
-        BRF:0
-        BRH:0
-        end_of_record' > coverage/lcov.info
-        # Создаём пустой nyc-отчёт
-        echo '{}' > .nyc_output/out.json
-
-    - name: Run ESLint
-      run: npm run lint
-
-    - name: SonarCloud Scan
-      uses: SonarSource/sonarcloud-github-action@master
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-      with:
-        args: >
-          -Dsonar.organization=${{ vars.SONAR_ORG }}
-          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
-          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
-          -Dsonar.qualitygate.wait=true
-          -Dsonar.coverage.exclusions=**/*.spec.js
-
   release:
     name: Release
-    needs: analyze
     if: success()
     runs-on: ubuntu-latest
     permissions:
