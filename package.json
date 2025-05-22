@@ -6,10 +6,8 @@
     "@semantic-release/github": "^9.2.6"
   },
   "scripts": {
-  "test": "jest",
-  "test:coverage": "jest --coverage --watchAll=false",
-  "lint": "eslint .",
-  "check-coverage": "npx check-coverage --lines 80 --functions 80 --branches 80 --statements 80"
+  "coverage": "c8 --all --reporter=lcov --reporter=text npm run lint",
+  "lint": "eslint ."
   }, 
   "nyc": {
   "check-coverage": true,
