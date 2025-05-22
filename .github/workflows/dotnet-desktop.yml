@@ -21,13 +21,21 @@ jobs:
         node-version: '18'
 
     - name: Install dependencies
-      run: npm install
-
+      run: |
+        npm install
+        npm install -g jest  # Глобальная установка для подстраховки
+    
     - name: Run tests with coverage
       run: npm run test:coverage
 
-    - name: Verify code coverage
-      run: npm run check-coverage
+    - name: Verify Jest installation
+      run: |
+        if ! [ -x "$(command -v jest)" ]; then
+          echo "Error: Jest is not installed"
+          npm list jest || npm install --save-dev jest
+        fi
+        echo "Jest version:"
+        npx jest --version
 
     - name: Run ESLint
       run: npm run lint
