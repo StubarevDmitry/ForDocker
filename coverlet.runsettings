@@ -1,0 +1,6 @@
+<CoverletRunSettings>
+  <Format>opencover</Format>
+  <ExcludeByFile>**/Program.cs</ExcludeByFile>
+  <Include>[SimpleApp]*</Include>
+  <Exclude>[SimpleApp.Tests]*</Exclude>
+</CoverletRunSettings>
