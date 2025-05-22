@@ -4,5 +4,18 @@
     "@semantic-release/exec": "^6.0.3",
     "@semantic-release/git": "^10.0.1",
     "@semantic-release/github": "^9.2.6"
-  }
+  },
+  "scripts": {
+  "test": "jest",
+  "test:coverage": "jest --coverage --watchAll=false",
+  "lint": "eslint .",
+  "check-coverage": "npx check-coverage --lines 80 --functions 80 --branches 80 --statements 80"
+  }, 
+  "nyc": {
+  "check-coverage": true,
+  "lines": 80,
+  "statements": 80,
+  "functions": 80,
+  "branches": 80
+}
 }
