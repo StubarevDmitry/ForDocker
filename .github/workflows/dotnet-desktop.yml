@@ -3,10 +3,55 @@ name: CI/CD Pipeline
 on:
   push:
     branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
 
 jobs:
+  test-and-analyze:
+    name: Test, Analyze and Check Coverage
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Run tests with coverage
+      run: npm test -- --coverage
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v3
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        fail_ci_if_error: true
+
+    - name: Run ESLint
+      run: npm run lint
+
+    - name: SonarCloud Scan
+      uses: SonarSource/sonarcloud-github-action@master
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+      with:
+        args: >
+          -Dsonar.organization=${{ vars.SONAR_ORG }}
+          -Dsonar.projectKey=${{ vars.SONAR_PROJECT_KEY }}
+          -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
+          -Dsonar.qualitygate.wait=true
+          -Dsonar.coverage.exclusions=**/*.spec.js
+
   release:
     name: Release
+    needs: test-and-analyze
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -48,7 +93,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        fetch-depth: 0  # Необходимо для работы с тегами
+        fetch-depth: 0
     
     - name: Verify Dockerfile exists
       run: |
@@ -74,11 +119,9 @@ jobs:
     - name: Get version
       id: version
       run: |
-        # Проверяем наличие тегов
         if git describe --tags --abbrev=0 &>/dev/null; then
           VERSION=$(git describe --tags --abbrev=0)
         else
-          # Если тегов нет, используем SHA коммита
           VERSION=${{ github.sha }}
         fi
         echo "version=${VERSION}" >> $GITHUB_OUTPUT
