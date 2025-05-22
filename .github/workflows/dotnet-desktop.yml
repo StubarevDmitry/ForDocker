@@ -17,10 +17,22 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v3
         with:
-          dotnet-version: '8.0.x'
+          dotnet-version: '6.0.x'
+
+      - name: Install SonarScanner for .NET
+        run: dotnet tool install --global dotnet-sonarscanner
 
       - name: Install dependencies
         run: dotnet restore
+
+      - name: Start SonarScanner
+        run: |
+          dotnet sonarscanner begin /k:"StubarevDmitry_ForDocker" /o:"stubarevdmitry" \
+          /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
+          /d:sonar.coverage.exclusions="**Test*.cs" \
+          /d:sonar.qualitygate.wait=true \
+          /d:sonar.qualitygate.timeout=300 \
+          /d:sonar.login=${{ secrets.SONAR_TOKEN }}
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
@@ -29,16 +41,9 @@ jobs:
         run: |
           dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --settings coverlet.runsettings
 
-      - name: Convert coverage to SonarQube format
-        uses: sonarsource/sonarcloud-github-action@master
-        env:
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: |
-            dotnet sonarscanner begin /k:"StubarevDmitry_ForDocker" /o:"stubarevdmitry" /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" /d:sonar.coverage.exclusions="**Test*.cs" /d:sonar.qualitygate.wait=true /d:sonar.qualitygate.timeout=300
-
-      - name: Run SonarCloud analysis
-        run: dotnet sonarscanner end /d:sonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: End SonarScanner
+        run: |
+          dotnet sonarscanner end /d:sonar.login=${{ secrets.SONAR_TOKEN }}
 
   release:
     name: Release
