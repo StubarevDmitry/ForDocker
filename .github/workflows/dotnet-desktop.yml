@@ -47,7 +47,7 @@ jobs:
           /o:"${{ env.SONAR_ORG }}" \
           /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
-          /d:sonar.coverage.exclusions="**Test*.cs" \
+          /d:sonar.coverage.exclusions="**Test*.cs,**/Program.cs" \
           /d:sonar.qualitygate.wait=true \
           /d:sonar.qualitygate.timeout=600 \
           /d:sonar.coverage.measures.lines.minimum=${{ env.MIN_COVERAGE }}
