@@ -7,5 +7,18 @@ int b = 1;
 while (true)
 {
     Console.WriteLine(a + b);
-    Thread.Sleep(5000);
+    Thread.Sleep(1000);
+    Console.WriteLine(a + b);
+    Thread.Sleep(1000);
+    Console.WriteLine(a + b);
+    Thread.Sleep(1000);
+}
+while (true)
+{
+    Console.WriteLine(a + b);
+    Thread.Sleep(1000);
+    Console.WriteLine(a + b);
+    Thread.Sleep(1000);
+    Console.WriteLine(a + b);
+    Thread.Sleep(1000);
 }
