@@ -9,7 +9,14 @@ while (true)
     Thread.Sleep(200);
 }
 
-int plusOne(int a)
+namespace SimpleApp
 {
-    return a + 1;
+    public class ForTest()
+    {
+        int a = 1;
+        public static int plusOne(int a)
+        {
+            return a + 1;
+        }
+    }
 }
