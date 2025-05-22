@@ -8,9 +8,10 @@ env:
   SONAR_PROJECT_KEY: "StubarevDmitry_ForDocker"
   SONAR_ORG: "stubarevdmitry"
   MIN_COVERAGE: "80" # Минимальный порог покрытия 80%
+  PROJECT_DIR: "."  # Указывает на корень проекта
 
 jobs:
-sonarcloud-analysis:
+  sonarcloud-analysis:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
 
@@ -24,31 +25,48 @@ sonarcloud-analysis:
         with:
           dotnet-version: '6.0.x'
 
-      - name: Install SonarScanner for .NET
-        run: dotnet tool install --global dotnet-sonarscanner
+      - name: Install tools
+        run: |
+          dotnet tool install --global dotnet-sonarscanner
+          dotnet tool install --global coverlet.console
 
-      - name: Install dependencies
-        run: dotnet restore
+      - name: Find project file
+        id: find-proj
+        run: |
+          CSPROJ_PATH=$(find "${{ env.PROJECT_DIR }}" -name "*.csproj" | head -n 1)
+          if [ -z "$CSPROJ_PATH" ]; then
+            echo "::error::No .csproj file found in ${{ env.PROJECT_DIR }}"
+            exit 1
+          fi
+          echo "project-path=${CSPROJ_PATH}" >> $GITHUB_OUTPUT
 
       - name: Start SonarScanner
         run: |
-          dotnet sonarscanner begin /k:"StubarevDmitry_ForDocker" /o:"stubarevdmitry" \
+          dotnet sonarscanner begin \
+          /k:"${{ env.SONAR_PROJECT_KEY }}" \
+          /o:"${{ env.SONAR_ORG }}" \
+          /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
           /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
           /d:sonar.coverage.exclusions="**Test*.cs" \
           /d:sonar.qualitygate.wait=true \
-          /d:sonar.qualitygate.timeout=300 \
-          /d:sonar.login=${{ secrets.SONAR_TOKEN }}
+          /d:sonar.qualitygate.timeout=600 \
+          /d:sonar.coverage.measures.lines.minimum=${{ env.MIN_COVERAGE }}
 
-      - name: Build
-        run: dotnet build --configuration Release --no-restore
-
-      - name: Test with coverage
+      - name: Build and Test
         run: |
-          dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --settings coverlet.runsettings
+          dotnet restore "${{ steps.find-proj.outputs.project-path }}"
+          dotnet build "${{ steps.find-proj.outputs.project-path }}" --configuration Release --no-restore
+          dotnet test "${{ steps.find-proj.outputs.project-path }}" \
+            --configuration Release \
+            --no-build \
+            --collect:"XPlat Code Coverage" \
+            --settings coverlet.runsettings \
+            --logger trx \
+            --results-directory TestResults
 
       - name: End SonarScanner
         run: |
-          dotnet sonarscanner end /d:sonar.login=${{ secrets.SONAR_TOKEN }}
+          dotnet sonarscanner end /d:sonar.login="${{ secrets.SONAR_TOKEN }}"
 
   release:
     name: Release
