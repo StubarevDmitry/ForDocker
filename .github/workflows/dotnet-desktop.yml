@@ -24,18 +24,10 @@ jobs:
       run: npm install
 
     - name: Run tests with coverage
-      run: npm test -- --coverage --watchAll=false
+      run: npm run test:coverage
 
     - name: Verify code coverage
-      run: |
-        # Проверяем, что покрытие соответствует минимальным требованиям
-        npm run check-coverage
-
-    - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
-      with:
-        token: ${{ secrets.CODECOV_TOKEN }}
-        fail_ci_if_error: true
+      run: npm run check-coverage
 
     - name: Run ESLint
       run: npm run lint
@@ -52,10 +44,6 @@ jobs:
           -Dsonar.javascript.lcov.reportPaths=coverage/lcov.info
           -Dsonar.qualitygate.wait=true
           -Dsonar.coverage.exclusions=**/*.spec.js
-          -Dsonar.testExecutionReportPaths=coverage/test-report.xml
-          -Dsonar.javascript.node.maxspace=4096
-          -Dsonar.working.directory=./sonar-scanner
-
   release:
     name: Release
     needs: test-and-analyze
