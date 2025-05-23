@@ -10,10 +10,24 @@ env:
   MIN_COVERAGE: "80" # Минимальный порог покрытия 80%
   PROJECT_DIR: "."  # Указывает на корень проекта
 
+name: SonarCloud Analysis
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  SONAR_PROJECT_KEY: your-project-key
+  SONAR_ORG: your-org
+  MIN_COVERAGE: 80
+  PROJECT_DIR: .
+
 jobs:
   sonarcloud-analysis:
     name: SonarCloud Analysis
-    runs-on: windows-latest  # Требуется для сбора покрытия в формате Visual Studio
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v4
@@ -25,48 +39,57 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install SonarScanner
-        run: dotnet tool install --global dotnet-sonarscanner
-
-      - name: Find project file
-        id: find-proj
+      - name: Install tools
         run: |
-          CSPROJ_PATH=$(find "${{ env.PROJECT_DIR }}" -name "*.csproj" | head -n 1)
-          if [ -z "$CSPROJ_PATH" ]; then
-            echo "::error::No .csproj file found in ${{ env.PROJECT_DIR }}"
+          dotnet tool install --global dotnet-sonarscanner
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+
+      - name: Find project file (PowerShell)
+        id: find-proj
+        shell: pwsh
+        run: |
+          $csproj = Get-ChildItem -Path "${{ env.PROJECT_DIR }}" -Filter *.csproj -Recurse | Select-Object -First 1
+          if (-not $csproj) {
+            Write-Error "No .csproj file found in ${{ env.PROJECT_DIR }}"
             exit 1
-          fi
-          echo "project-path=${CSPROJ_PATH}" >> $GITHUB_OUTPUT
+          }
+          echo "project-path=$($csproj.FullName)" >> $env:GITHUB_OUTPUT
 
       - name: Start SonarScanner
         run: |
-          dotnet sonarscanner begin \
-          /k:"${{ env.SONAR_PROJECT_KEY }}" \
-          /o:"${{ env.SONAR_ORG }}" \
-          /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
-          /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/*/coverage.cobertura.xml" \
-          /d:sonar.coverage.exclusions="**Test*.cs,**/Program.cs" \
-          /d:sonar.qualitygate.wait=true \
-          /d:sonar.qualitygate.timeout=600 \
+          dotnet sonarscanner begin `
+          /k:"${{ env.SONAR_PROJECT_KEY }}" `
+          /o:"${{ env.SONAR_ORG }}" `
+          /d:sonar.login="${{ secrets.SONAR_TOKEN }}" `
+          /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/*/coverage.cobertura.xml" `
+          /d:sonar.coverage.exclusions="**Test*.cs,**/Program.cs" `
+          /d:sonar.qualitygate.wait=true `
+          /d:sonar.qualitygate.timeout=600 `
           /d:sonar.coverage.measures.lines.minimum=${{ env.MIN_COVERAGE }}
 
-      - name: Build and Test with Coverage
+      - name: Build and Test
         run: |
           dotnet restore "${{ steps.find-proj.outputs.project-path }}"
           dotnet build "${{ steps.find-proj.outputs.project-path }}" --configuration Release --no-restore
-          dotnet test "${{ steps.find-proj.outputs.project-path }}" \
-            --configuration Release \
-            --no-build \
-            --collect "Code Coverage" \
-            --logger trx \
+          dotnet test "${{ steps.find-proj.outputs.project-path }}" `
+            --configuration Release `
+            --no-build `
+            --collect "Code Coverage" `
+            --logger trx `
             --results-directory TestResults
 
-      - name: Convert coverage report (fallback)
-        if: ${{ always() }}  # Выполняется даже при ошибках тестов
+      - name: Convert coverage report
+        if: always()
+        shell: pwsh
         run: |
-          # Установка ReportGenerator на случай, если автоматическое преобразование не сработает
-          dotnet tool install --global dotnet-reportgenerator-globaltool
-          reportgenerator -reports:"**/TestResults/*/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Cobertura
+          # Проверяем наличие исходного отчета
+          $coverageFile = Get-ChildItem -Path "TestResults" -Filter "*.coverage" -Recurse | Select-Object -First 1
+          if ($coverageFile) {
+            # Конвертируем .coverage в cobertura.xml (пример команды, может потребоваться дополнительная настройка)
+            reportgenerator -reports:"$($coverageFile.FullName)" -targetdir:"coveragereport" -reporttypes:Cobertura
+          } else {
+            Write-Warning "No coverage file found in TestResults directory"
+          }
 
       - name: End SonarScanner
         run: |
