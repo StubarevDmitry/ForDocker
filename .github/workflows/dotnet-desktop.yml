@@ -13,7 +13,7 @@ env:
 jobs:
   sonarcloud-analysis:
     name: SonarCloud Analysis
-    runs-on: ubuntu-latest
+    runs-on: windows-latest  # Требуется для сбора покрытия в формате Visual Studio
 
     steps:
       - uses: actions/checkout@v4
@@ -21,14 +21,12 @@ jobs:
           fetch-depth: 0
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: actions/setup-dotnet@v4
         with:
           dotnet-version: '8.0.x'
 
-      - name: Install tools
-        run: |
-          dotnet tool install --global dotnet-sonarscanner
-          dotnet tool install --global coverlet.console
+      - name: Install SonarScanner
+        run: dotnet tool install --global dotnet-sonarscanner
 
       - name: Find project file
         id: find-proj
@@ -46,23 +44,29 @@ jobs:
           /k:"${{ env.SONAR_PROJECT_KEY }}" \
           /o:"${{ env.SONAR_ORG }}" \
           /d:sonar.login="${{ secrets.SONAR_TOKEN }}" \
-          /d:sonar.cs.opencover.reportsPaths="**/coverage.opencover.xml" \
+          /d:sonar.cs.vscoveragexml.reportsPaths="**/TestResults/*/coverage.cobertura.xml" \
           /d:sonar.coverage.exclusions="**Test*.cs,**/Program.cs" \
           /d:sonar.qualitygate.wait=true \
           /d:sonar.qualitygate.timeout=600 \
           /d:sonar.coverage.measures.lines.minimum=${{ env.MIN_COVERAGE }}
 
-      - name: Build and Test
+      - name: Build and Test with Coverage
         run: |
           dotnet restore "${{ steps.find-proj.outputs.project-path }}"
           dotnet build "${{ steps.find-proj.outputs.project-path }}" --configuration Release --no-restore
           dotnet test "${{ steps.find-proj.outputs.project-path }}" \
             --configuration Release \
             --no-build \
-            --collect:"XPlat Code Coverage" \
-            --settings coverlet.runsettings \
+            --collect "Code Coverage" \
             --logger trx \
             --results-directory TestResults
+
+      - name: Convert coverage report (fallback)
+        if: ${{ always() }}  # Выполняется даже при ошибках тестов
+        run: |
+          # Установка ReportGenerator на случай, если автоматическое преобразование не сработает
+          dotnet tool install --global dotnet-reportgenerator-globaltool
+          reportgenerator -reports:"**/TestResults/*/coverage.cobertura.xml" -targetdir:"coveragereport" -reporttypes:Cobertura
 
       - name: End SonarScanner
         run: |
