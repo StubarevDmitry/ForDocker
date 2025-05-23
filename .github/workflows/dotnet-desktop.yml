@@ -10,20 +10,6 @@ env:
   MIN_COVERAGE: "80" # Минимальный порог покрытия 80%
   PROJECT_DIR: "."  # Указывает на корень проекта
 
-name: SonarCloud Analysis
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-
-env:
-  SONAR_PROJECT_KEY: your-project-key
-  SONAR_ORG: your-org
-  MIN_COVERAGE: 80
-  PROJECT_DIR: .
-
 jobs:
   sonarcloud-analysis:
     name: SonarCloud Analysis
